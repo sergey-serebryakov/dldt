@@ -18,6 +18,7 @@
 #define CPU_ISA_TRAITS_HPP
 
 #include <type_traits>
+#include <stdio.h>
 
 #define XBYAK64
 #define XBYAK_NO_OP_NAMES
@@ -109,12 +110,23 @@ static inline bool mayiuse(const cpu_isa_t cpu_isa) {
             && cpu.has(Cpu::tAVX512VL)
             && cpu.has(Cpu::tAVX512DQ);
     case avx512_core_vnni:
+        // force_no_vnni == -1 : This is a first time call, no information available yet.
+        // force_no_vnni ==  0 : Use VNNI instructions if other conditions are met.
+        // force_no_vnni ==  1 : Do not use VNNI even if CPU supports it.
+        static int force_no_vnni = -1;
+        if (force_no_vnni == -1) {
+             const char *e = ::getenv("MKLDNN_NO_VNNI");
+             force_no_vnni = (e != NULL && *e == '1' ? 1 : 0);
+             printf("MKLDNN_NO_VNNI: %d (if 0: use VNNI if available; if 1: do not use VNNI even if available)\n",
+                    force_no_vnni);
+        }
         return true
             && cpu.has(Cpu::tAVX512F)
             && cpu.has(Cpu::tAVX512BW)
             && cpu.has(Cpu::tAVX512VL)
             && cpu.has(Cpu::tAVX512DQ)
-            && cpu.has(Cpu::tAVX512_VNNI);
+            && cpu.has(Cpu::tAVX512_VNNI)
+            && !force_no_vnni;
     case avx512_mic:
         return true
             && cpu.has(Cpu::tAVX512F)
